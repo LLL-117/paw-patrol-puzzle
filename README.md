@@ -2,6 +2,8 @@
 
 静态网页游戏，可部署到 **GitHub Pages**，无需后端。
 
+本文件夹是**独立 Git 仓库**（根目录已有 `.git`）。若你的 `Cursor` 大仓库里曾包含本目录，父仓库已通过 `.gitignore` 忽略此处，避免重复提交；拼图只往**本仓库对应的 GitHub 仓库**推送即可。
+
 ## 在线地址长什么样
 
 开启 Pages 后，游戏网址一般为：
@@ -29,14 +31,21 @@ https://zhangsan.github.io/paw-patrol-puzzle/
 
 ### 2. 把本文件夹推送到 GitHub
 
-在电脑上用 **PowerShell** 进入本目录（`paw_patrol_puzzle`），执行（把 `你的用户名` 和 `仓库名` 换成自己的）：
+本地**已经**执行过 `git init` 且有一次初始提交时，只需绑定远程并推送：
 
 ```powershell
 cd D:\Cursor\paw_patrol_puzzle
+git remote add origin https://github.com/你的用户名/仓库名.git
+git push -u origin main
+```
+
+若是全新克隆的空目录、还没有提交，再使用：
+
+```powershell
 git init
-git add index.html puzzle_source.png README.md 说明.txt
-git commit -m "Initial commit: puzzle game"
 git branch -M main
+git add .
+git commit -m "Initial commit: puzzle game"
 git remote add origin https://github.com/你的用户名/仓库名.git
 git push -u origin main
 ```
