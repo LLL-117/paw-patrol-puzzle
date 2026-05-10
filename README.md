@@ -73,7 +73,8 @@ git push
 |------|------|
 | `index.html` | 主页面（进入页 + 拼图） |
 | `puzzle_source.png` | 拼图用原图，须与 `index.html` 同目录 |
-| `paw_patrol_theme.mp3` | 可选；主题曲，同目录，无则游戏静音 |
+| `paw_patrol_theme.ogg` | 主题曲（当前使用 Ogg）；同目录 |
+| `paw_patrol_theme.mp3` | 可选；无 Ogg 时可用 MP3 备用 |
 
 ## 本地预览
 

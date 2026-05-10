@@ -315,11 +315,12 @@
       <p class="splash-sub">九宫格拼图</p>
       <p class="splash-music">背景音乐：《汪汪队立大功》主题曲<br />点击下面按钮进入游戏并开始播放</p>
       <button type="button" class="splash-enter" id="btnEnter" autofocus>点击进入</button>
-      <p class="splash-foot">请将音频文件 <code>paw_patrol_theme.mp3</code> 与本网页放在同一文件夹（须为您合法持有的拷贝）。无此文件时进入游戏后无声音。</p>
+      <p class="splash-foot">背景音乐为同目录的 <code>paw_patrol_theme.ogg</code>（可选另放 <code>paw_patrol_theme.mp3</code> 作备用）。</p>
     </div>
   </div>
 
   <audio id="bgm" loop playsinline preload="auto">
+    <source src="paw_patrol_theme.ogg" type="audio/ogg" />
     <source src="paw_patrol_theme.mp3" type="audio/mpeg" />
   </audio>
 
