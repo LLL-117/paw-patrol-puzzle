@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>汪汪队拼图 · 3×3</title>
+  <style>
+    :root {
+      --board: min(88vw, 360px);
+      --play-max-h: calc(100vh - 200px);
+      --gap: 4px;
+      --bg: #1a1f2e;
+      --card: #2a3142;
+      --accent: #4fc3f7;
+      --win: #66bb6a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(160deg, var(--bg) 0%, #0d1117 100%);
+      color: #e6edf3;
+      padding: 12px 14px 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+    .sub {
+      text-align: center;
+      color: #8b949e;
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+      line-height: 1.45;
+    }
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .toolbar button, .toolbar label {
+      cursor: pointer;
+      border: 1px solid #3d444d;
+      background: var(--card);
+      color: #e6edf3;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    .toolbar button:hover, .toolbar label:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .toolbar input[type="checkbox"] { margin-right: 6px; vertical-align: middle; }
+    .play-area {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 14px 18px;
+      margin-bottom: 10px;
+    }
+    .ref-pane {
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: min(44vw, 420px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .ref-pane[hidden] {
+      display: none !important;
+    }
+    .ref-pane .preview-panel {
+      margin-bottom: 0;
+      width: 100%;
+    }
+    .board-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex: 0 1 auto;
+      min-width: 0;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: var(--gap);
+      width: var(--board);
+      /* 宽高比由 JS 按原图设置，避免横向图被压成正方形导致碎片变形、像「只有局部」 */
+      padding: var(--gap);
+      background: #111;
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.45);
+    }
+    .cell {
+      position: relative;
+      border-radius: 6px;
+      overflow: hidden;
+      cursor: grab;
+      touch-action: none;
+      border: 3px solid transparent;
+      transition: border-color 0.15s, transform 0.12s, opacity 0.12s;
+      background-color: #222;
+      background-repeat: no-repeat;
+      min-height: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .board.solved .cell {
+      cursor: default;
+      touch-action: auto;
+    }
+    .cell:hover:not(.dragging-source) { transform: scale(1.02); }
+    .cell.dragging-source {
+      cursor: grabbing;
+      opacity: 0.72;
+      z-index: 2;
+      transform: scale(1.02);
+      border-color: rgba(79, 195, 247, 0.55);
+      box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.35);
+    }
+    .cell.drag-over {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.5);
+    }
+    .cell.correct-hint { outline: 2px solid var(--win); outline-offset: -2px; }
+    .frag-label {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      font-size: 11px;
+      padding: 2px 6px;
+      background: rgba(0,0,0,.65);
+      border-radius: 4px;
+      color: #fff;
+      display: none;
+      pointer-events: none;
+    }
+    .show-frag .frag-label { display: block; }
+    .preview-panel {
+      text-align: center;
+      margin-bottom: 0;
+    }
+    .preview-panel img {
+      display: block;
+      margin: 0 auto;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: min(36vh, var(--play-max-h));
+      object-fit: contain;
+      border-radius: 10px;
+      border: 2px solid #3d444d;
+    }
+    .preview-panel p { margin: 6px 0 0; font-size: 0.78rem; color: #8b949e; line-height: 1.4; }
+    @media (min-width: 720px) {
+      .play-area {
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: center;
+      }
+      .ref-pane {
+        max-width: min(42vw, 440px);
+      }
+      .preview-panel img {
+        max-height: min(58vh, var(--play-max-h));
+      }
+      :root {
+        --board: min(42vw, min(380px, calc((100vh - 200px) * var(--img-aspect, 1))));
+      }
+    }
+    details.hints-wrap {
+      margin-top: 10px;
+      background: var(--card);
+      border-radius: 12px;
+      border: 1px solid #3d444d;
+      overflow: hidden;
+    }
+    details.hints-wrap > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      color: var(--accent);
+      user-select: none;
+    }
+    details.hints-wrap > summary::-webkit-details-marker { display: none; }
+    details.hints-wrap[open] > summary { border-bottom: 1px solid #3d444d; }
+    .hints {
+      padding: 12px 16px 14px;
+    }
+    .hints h2 {
+      margin: 0 0 8px;
+      font-size: 0.95rem;
+      color: var(--accent);
+    }
+    .hints ol {
+      margin: 0;
+      padding-left: 1.2rem;
+      color: #c9d1d9;
+      line-height: 1.65;
+      font-size: 0.88rem;
+    }
+    .status {
+      text-align: center;
+      margin-top: 14px;
+      min-height: 1.5em;
+      font-size: 0.95rem;
+    }
+    .status.win { color: var(--win); font-weight: 600; }
+    .legend {
+      font-size: 0.78rem;
+      color: #6e7681;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    /* —— 进入页（无账号密码，仅点击进入） —— */
+    body.splash-open {
+      overflow: hidden;
+    }
+    .splash {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 20%, rgba(79, 195, 247, 0.18), transparent 55%),
+        radial-gradient(ellipse 70% 50% at 80% 80%, rgba(255, 193, 7, 0.12), transparent 50%),
+        linear-gradient(165deg, #0f1419 0%, #1a2433 45%, #0d1117 100%);
+    }
+    .splash.is-hidden {
+      display: none;
+    }
+    .splash-inner {
+      text-align: center;
+      max-width: 420px;
+    }
+    .splash-logo {
+      font-size: clamp(1.75rem, 5vw, 2.25rem);
+      font-weight: 700;
+      margin: 0 0 10px;
+      letter-spacing: 0.04em;
+      background: linear-gradient(120deg, #81d4fa 0%, #fff9c4 50%, #4fc3f7 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .splash-sub {
+      margin: 0 0 8px;
+      font-size: 0.95rem;
+      color: #8b949e;
+    }
+    .splash-music {
+      margin: 0 0 28px;
+      font-size: 0.82rem;
+      color: #6e7681;
+      line-height: 1.5;
+    }
+    .splash-enter {
+      cursor: pointer;
+      border: none;
+      padding: 16px 48px;
+      font-size: 1.15rem;
+      font-weight: 600;
+      border-radius: 999px;
+      color: #0d1117;
+      background: linear-gradient(180deg, #b3e5fc 0%, #4fc3f7 45%, #0288d1 100%);
+      box-shadow: 0 8px 28px rgba(79, 195, 247, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .splash-enter:hover {
+      transform: scale(1.04);
+      box-shadow: 0 10px 32px rgba(79, 195, 247, 0.45);
+    }
+    .splash-enter:active {
+      transform: scale(0.98);
+    }
+    .splash-foot {
+      margin-top: 28px;
+      font-size: 0.72rem;
+      color: #484f58;
+      line-height: 1.45;
+    }
+    .splash-foot code {
+      font-size: 0.95em;
+      color: #6e7681;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .game-screen.is-hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body class="splash-open">
+  <div id="splash" class="splash" role="dialog" aria-labelledby="splashTitle" aria-modal="true">
+    <div class="splash-inner">
+      <h1 id="splashTitle" class="splash-logo">汪汪队立大功</h1>
+      <p class="splash-sub">九宫格拼图</p>
+      <p class="splash-music">背景音乐：《汪汪队立大功》主题曲<br />点击下面按钮进入游戏并开始播放</p>
+      <button type="button" class="splash-enter" id="btnEnter" autofocus>点击进入</button>
+      <p class="splash-foot">请将音频文件 <code>paw_patrol_theme.mp3</code> 与本网页放在同一文件夹（须为您合法持有的拷贝）。无此文件时进入游戏后无声音。</p>
+    </div>
+  </div>
+
+  <audio id="bgm" loop playsinline preload="auto">
+    <source src="paw_patrol_theme.mp3" type="audio/mpeg" />
+  </audio>
+
+  <div id="gameScreen" class="game-screen is-hidden">
+  <div class="wrap">
+    <h1>汪汪队立大功 · 九宫格拼图</h1>
+    <p class="sub">按住一块拖到另一格即可交换位置，拼回完整图即胜利。开局为打乱状态，九格拼合前不会与上方原图一致属正常。棋盘比例随原图变化，避免碎片被拉成正方形而发糊。</p>
+
+    <div class="toolbar">
+      <button type="button" id="btnBgm" title="切换背景音乐">音乐：开</button>
+      <button type="button" id="btnShuffle">重新打乱</button>
+      <button type="button" id="btnHintPos">高亮已归位的块</button>
+      <label><input type="checkbox" id="chkPreview" checked />显示完整原图（提示）</label>
+      <label><input type="checkbox" id="chkFrag" />显示碎片编号</label>
+    </div>
+
+    <div class="play-area" id="playArea">
+      <div class="ref-pane" id="refPane">
+        <div class="preview-panel" id="previewPanel">
+          <img id="previewImg" src="puzzle_source.png" alt="完整参考图" />
+          <p>对照原图拼回九宫格；宽屏时左右并排，手机竖屏时上下排列。</p>
+        </div>
+      </div>
+      <div class="board-wrap">
+        <div class="board" id="board"></div>
+      </div>
+    </div>
+
+    <p class="legend">玩法：按住碎片拖到目标格松开，两格内容交换。碎片编号表示「这一块在完整图里属于第几号区域」。</p>
+    <div class="status" id="status">进度：— 按住一块拖到另一格交换</div>
+
+    <details class="hints-wrap">
+      <summary>展开：九个格子的位置文字提示</summary>
+      <section class="hints">
+        <h2>拼对后每块应在对应格</h2>
+        <ol id="hintList">
+          <li><strong>左上格：</strong>蓝天、左侧绿树与彩色气球一角。</li>
+          <li><strong>上中格：</strong>画面上方正中的圆形汪汪队标志。</li>
+          <li><strong>右上格：</strong>蓝天、右侧树梢与另一簇气球。</li>
+          <li><strong>左中格：</strong>左侧几只狗狗的上半脸（黄帽、绿帽等）。</li>
+          <li><strong>正中格：</strong>阿奇的蓝色警帽与面部（画面中心主角）。</li>
+          <li><strong>右中格：</strong>毛毛红色消防帽与旁边橙色头盔一带。</li>
+          <li><strong>左下格：</strong>左下角角色身体与草地。</li>
+          <li><strong>下中格：</strong>中间偏下的草地与奔跑的前爪。</li>
+          <li><strong>右下格：</strong>右下角草地、小白花与角落数字「9036」。</li>
+        </ol>
+      </section>
+    </details>
+  </div>
+  </div>
+
+  <script>
+    const N = 3;
+    const IMG = "puzzle_source.png";
+    /** placement[slot] = 当前格子里放的是「原图第几号碎片」(0..8)，正确时 placement[i]===i */
+    let placement = [];
+    let dragSlot = -1;
+    let dragPointerId = null;
+    let dragSourceEl = null;
+    let imgNaturalW = 1;
+    let imgNaturalH = 1;
+
+    const boardEl = document.getElementById("board");
+    const statusEl = document.getElementById("status");
+    const refPane = document.getElementById("refPane");
+    const chkPreview = document.getElementById("chkPreview");
+    const chkFrag = document.getElementById("chkFrag");
+    const splashEl = document.getElementById("splash");
+    const gameScreenEl = document.getElementById("gameScreen");
+    const btnEnter = document.getElementById("btnEnter");
+    const bgmEl = document.getElementById("bgm");
+    const btnBgm = document.getElementById("btnBgm");
+
+    function syncBgmButton() {
+      if (!btnBgm) return;
+      btnBgm.textContent = bgmEl.muted || bgmEl.volume === 0 ? "音乐：关" : "音乐：开";
+    }
+
+    btnEnter.addEventListener("click", () => {
+      splashEl.classList.add("is-hidden");
+      gameScreenEl.classList.remove("is-hidden");
+      document.body.classList.remove("splash-open");
+      bgmEl.muted = false;
+      bgmEl.volume = 0.4;
+      bgmEl.play().catch(() => {
+        /* 文件缺失或浏览器策略：静默失败 */
+      });
+      syncBgmButton();
+    });
+
+    btnBgm.addEventListener("click", () => {
+      if (bgmEl.muted) {
+        bgmEl.muted = false;
+        if (bgmEl.volume === 0) bgmEl.volume = 0.4;
+        bgmEl.play().catch(() => {});
+      } else {
+        bgmEl.muted = true;
+      }
+      syncBgmButton();
+    });
+
+    bgmEl.addEventListener("volumechange", syncBgmButton);
+
+    function syncRefPane() {
+      refPane.hidden = !chkPreview.checked;
+    }
+
+    function shuffleArray(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function makeShuffledPlacement() {
+      let p;
+      do {
+        p = shuffleArray([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+      } while (p.every((v, i) => v === i));
+      return p;
+    }
+
+    function isSolved() {
+      return placement.every((v, i) => v === i);
+    }
+
+    function updateStatus() {
+      if (isSolved()) {
+        statusEl.textContent = "恭喜！已拼回完整图！";
+        statusEl.className = "status win";
+        return;
+      }
+      statusEl.className = "status";
+      const ok = placement.filter((v, i) => v === i).length;
+      statusEl.textContent = `进度：${ok}/9 块已在正确位置 — 按住一块拖到另一格交换`;
+    }
+
+    function clearDragOver() {
+      boardEl.querySelectorAll(".cell.drag-over").forEach((el) => {
+        el.classList.remove("drag-over");
+      });
+    }
+
+    function slotFromPoint(clientX, clientY) {
+      const t = document.elementFromPoint(clientX, clientY);
+      const cell = t && t.closest && t.closest(".cell");
+      if (!cell || !boardEl.contains(cell)) return -1;
+      const s = parseInt(cell.dataset.slot, 10);
+      return Number.isFinite(s) ? s : -1;
+    }
+
+    function resetDragState(pointerId) {
+      const el = dragSourceEl;
+      dragSlot = -1;
+      dragPointerId = null;
+      dragSourceEl = null;
+      if (el) {
+        try {
+          el.releasePointerCapture(pointerId);
+        } catch (_) {}
+      }
+    }
+
+    function finishDrag(clientX, clientY, pointerId) {
+      if (dragPointerId !== pointerId || dragSlot < 0) return;
+      const from = dragSlot;
+      const target = slotFromPoint(clientX, clientY);
+      resetDragState(pointerId);
+      boardEl.querySelectorAll(".cell").forEach((el) => {
+        el.classList.remove("drag-over", "dragging-source");
+      });
+      if (!isSolved() && target >= 0 && target !== from) {
+        const tmp = placement[from];
+        placement[from] = placement[target];
+        placement[target] = tmp;
+      }
+      renderBoard();
+    }
+
+    /** 系统打断手势时不交换，避免坐标异常误换 */
+    function abortDrag(pointerId) {
+      if (dragPointerId !== pointerId || dragSlot < 0) return;
+      resetDragState(pointerId);
+      renderBoard();
+    }
+
+    function attachDragHandlers(div, slot) {
+      div.addEventListener("pointerdown", (e) => {
+        if (isSolved() || e.button !== 0) return;
+        dragSlot = slot;
+        dragPointerId = e.pointerId;
+        dragSourceEl = div;
+        div.setPointerCapture(e.pointerId);
+        div.classList.add("dragging-source");
+        clearDragOver();
+        e.preventDefault();
+      });
+      div.addEventListener("pointermove", (e) => {
+        if (dragPointerId !== e.pointerId || dragSlot < 0) return;
+        clearDragOver();
+        const over = slotFromPoint(e.clientX, e.clientY);
+        if (over >= 0 && over !== dragSlot) {
+          boardEl.querySelectorAll(".cell")[over].classList.add("drag-over");
+        }
+      });
+      div.addEventListener("pointerup", (e) => {
+        if (dragPointerId !== e.pointerId) return;
+        finishDrag(e.clientX, e.clientY, e.pointerId);
+      });
+      div.addEventListener("pointercancel", (e) => {
+        if (dragPointerId !== e.pointerId) return;
+        abortDrag(e.pointerId);
+      });
+      div.addEventListener("lostpointercapture", (e) => {
+        if (dragPointerId !== e.pointerId) return;
+        abortDrag(e.pointerId);
+      });
+    }
+
+    function cellBackgroundStyle(fragId) {
+      const col = fragId % N;
+      const row = Math.floor(fragId / N);
+      // 用百分比切片，使任意格子尺寸下都显示完整 1/N 图块（固定 px 会与棋盘宽度不一致导致裁切错位）
+      const step = 100 / (N - 1);
+      return {
+        backgroundImage: `url(${IMG})`,
+        backgroundSize: `${N * 100}% ${N * 100}%`,
+        backgroundPosition: `${col * step}% ${row * step}%`,
+      };
+    }
+
+    function renderBoard() {
+      boardEl.innerHTML = "";
+      const showFrag = chkFrag.checked;
+      boardEl.classList.toggle("show-frag", showFrag);
+      boardEl.classList.toggle("solved", isSolved());
+
+      for (let slot = 0; slot < N * N; slot++) {
+        const frag = placement[slot];
+        const div = document.createElement("div");
+        div.className = "cell";
+        div.dataset.slot = String(slot);
+
+        const st = cellBackgroundStyle(frag);
+        div.style.backgroundImage = st.backgroundImage;
+        div.style.backgroundSize = st.backgroundSize;
+        div.style.backgroundPosition = st.backgroundPosition;
+
+        const label = document.createElement("span");
+        label.className = "frag-label";
+        label.textContent = "碎片 " + (frag + 1);
+        div.appendChild(label);
+
+        if (!isSolved()) attachDragHandlers(div, slot);
+        boardEl.appendChild(div);
+      }
+      updateStatus();
+    }
+
+    document.getElementById("btnShuffle").addEventListener("click", () => {
+      placement = makeShuffledPlacement();
+      dragSlot = -1;
+      dragPointerId = null;
+      dragSourceEl = null;
+      renderBoard();
+    });
+
+    document.getElementById("btnHintPos").addEventListener("click", () => {
+      const cells = boardEl.querySelectorAll(".cell");
+      cells.forEach((el, slot) => {
+        el.classList.toggle("correct-hint", placement[slot] === slot);
+      });
+      setTimeout(() => {
+        cells.forEach((el) => el.classList.remove("correct-hint"));
+      }, 2000);
+    });
+
+    chkPreview.addEventListener("change", syncRefPane);
+
+    chkFrag.addEventListener("change", renderBoard);
+
+    const preload = new Image();
+    preload.onload = () => {
+      imgNaturalW = preload.naturalWidth;
+      imgNaturalH = preload.naturalHeight;
+      boardEl.style.aspectRatio = `${imgNaturalW} / ${imgNaturalH}`;
+      document.documentElement.style.setProperty(
+        "--img-aspect",
+        String(imgNaturalW / imgNaturalH)
+      );
+      placement = makeShuffledPlacement();
+      renderBoard();
+    };
+    preload.onerror = () => {
+      statusEl.textContent = "无法加载图片：请把 puzzle_source.png 与本网页放在同一文件夹后重试。";
+      statusEl.className = "status";
+    };
+    preload.src = IMG;
+    syncRefPane();
+    syncBgmButton();
+  </script>
+</body>
+</html>
