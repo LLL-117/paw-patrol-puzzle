@@ -225,6 +225,17 @@
       text-align: center;
       margin-top: 8px;
     }
+    .bgm-hint {
+      text-align: center;
+      color: #e3b341;
+      font-size: 0.8rem;
+      margin: 0 0 12px;
+      line-height: 1.5;
+      padding: 10px 12px;
+      background: rgba(227, 179, 65, 0.08);
+      border-radius: 8px;
+      border: 1px solid rgba(227, 179, 65, 0.28);
+    }
 
     /* —— 进入页（无账号密码，仅点击进入） —— */
     body.splash-open {
@@ -315,13 +326,13 @@
       <p class="splash-sub">九宫格拼图</p>
       <p class="splash-music">背景音乐：《汪汪队立大功》主题曲<br />点击下面按钮进入游戏并开始播放</p>
       <button type="button" class="splash-enter" id="btnEnter" autofocus>点击进入</button>
-      <p class="splash-foot">背景音乐为同目录的 <code>paw_patrol_theme.ogg</code>（可选另放 <code>paw_patrol_theme.mp3</code> 作备用）。</p>
+      <p class="splash-foot">同目录含 <code>paw_patrol_theme.mp3</code> 与 <code>paw_patrol_theme.ogg</code>（苹果 / 微信内建议走 MP3）。</p>
     </div>
   </div>
 
   <audio id="bgm" loop playsinline preload="auto">
-    <source src="paw_patrol_theme.ogg" type="audio/ogg" />
     <source src="paw_patrol_theme.mp3" type="audio/mpeg" />
+    <source src="paw_patrol_theme.ogg" type="audio/ogg" />
   </audio>
 
   <div id="gameScreen" class="game-screen is-hidden">
@@ -336,6 +347,8 @@
       <label><input type="checkbox" id="chkPreview" checked />显示完整原图（提示）</label>
       <label><input type="checkbox" id="chkFrag" />显示碎片编号</label>
     </div>
+
+    <p id="bgmHint" class="bgm-hint" hidden></p>
 
     <div class="play-area" id="playArea">
       <div class="ref-pane" id="refPane">
@@ -393,29 +406,75 @@
     const btnEnter = document.getElementById("btnEnter");
     const bgmEl = document.getElementById("bgm");
     const btnBgm = document.getElementById("btnBgm");
+    const bgmHintEl = document.getElementById("bgmHint");
 
     function syncBgmButton() {
       if (!btnBgm) return;
       btnBgm.textContent = bgmEl.muted || bgmEl.volume === 0 ? "音乐：关" : "音乐：开";
     }
 
+    function showBgmHint(msg) {
+      bgmHintEl.textContent = msg;
+      bgmHintEl.hidden = false;
+    }
+
+    function hideBgmHint() {
+      bgmHintEl.hidden = true;
+      bgmHintEl.textContent = "";
+    }
+
+    async function startBgm() {
+      hideBgmHint();
+      bgmEl.muted = false;
+      bgmEl.volume = 0.55;
+      bgmEl.load();
+      await new Promise((resolve) => {
+        const done = () => {
+          clearTimeout(t);
+          bgmEl.removeEventListener("canplay", done);
+          bgmEl.removeEventListener("error", onErr);
+          resolve();
+        };
+        const onErr = () => {
+          clearTimeout(t);
+          bgmEl.removeEventListener("canplay", done);
+          bgmEl.removeEventListener("error", onErr);
+          resolve();
+        };
+        const t = setTimeout(done, 4000);
+        if (bgmEl.readyState >= 3) {
+          clearTimeout(t);
+          resolve();
+          return;
+        }
+        bgmEl.addEventListener("canplay", done, { once: true });
+        bgmEl.addEventListener("error", onErr, { once: true });
+      });
+      try {
+        await bgmEl.play();
+        hideBgmHint();
+      } catch (err) {
+        showBgmHint(
+          "背景音乐未播放：请用系统浏览器（Chrome / Safari）打开页面；若在 GitHub 上，请确认已推送 paw_patrol_theme.mp3；检查标签页与系统是否静音；可点下方「音乐：开」重试。"
+        );
+      }
+    }
+
+    bgmEl.addEventListener("playing", () => hideBgmHint());
+
     btnEnter.addEventListener("click", () => {
       splashEl.classList.add("is-hidden");
       gameScreenEl.classList.remove("is-hidden");
       document.body.classList.remove("splash-open");
-      bgmEl.muted = false;
-      bgmEl.volume = 0.4;
-      bgmEl.play().catch(() => {
-        /* 文件缺失或浏览器策略：静默失败 */
-      });
+      void startBgm();
       syncBgmButton();
     });
 
     btnBgm.addEventListener("click", () => {
       if (bgmEl.muted) {
         bgmEl.muted = false;
-        if (bgmEl.volume === 0) bgmEl.volume = 0.4;
-        bgmEl.play().catch(() => {});
+        if (bgmEl.volume === 0) bgmEl.volume = 0.55;
+        bgmEl.play().catch(() => void startBgm());
       } else {
         bgmEl.muted = true;
       }
