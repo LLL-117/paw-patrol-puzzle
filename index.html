@@ -135,19 +135,14 @@
       box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.5);
     }
     .cell.correct-hint { outline: 2px solid var(--win); outline-offset: -2px; }
-    .frag-label {
-      position: absolute;
-      bottom: 4px;
-      right: 4px;
-      font-size: 11px;
-      padding: 2px 6px;
-      background: rgba(0,0,0,.65);
-      border-radius: 4px;
-      color: #fff;
-      display: none;
-      pointer-events: none;
+    .cell.hint-suggest {
+      border-color: #ffd54f;
+      box-shadow: 0 0 0 2px rgba(255, 213, 79, 0.55);
+      animation: hint-pulse 0.9s ease-in-out infinite;
     }
-    .show-frag .frag-label { display: block; }
+    @keyframes hint-pulse {
+      50% { box-shadow: 0 0 0 4px rgba(255, 213, 79, 0.35); }
+    }
     .preview-panel {
       text-align: center;
       margin-bottom: 0;
@@ -180,37 +175,22 @@
         --board: min(42vw, min(380px, calc((100vh - 200px) * var(--img-aspect, 1))));
       }
     }
-    details.hints-wrap {
+    .hint-panel {
       margin-top: 10px;
+      padding: 12px 14px;
       background: var(--card);
       border-radius: 12px;
       border: 1px solid #3d444d;
-      overflow: hidden;
-    }
-    details.hints-wrap > summary {
-      list-style: none;
-      cursor: pointer;
-      padding: 10px 14px;
-      font-size: 0.9rem;
-      color: var(--accent);
-      user-select: none;
-    }
-    details.hints-wrap > summary::-webkit-details-marker { display: none; }
-    details.hints-wrap[open] > summary { border-bottom: 1px solid #3d444d; }
-    .hints {
-      padding: 12px 16px 14px;
-    }
-    .hints h2 {
-      margin: 0 0 8px;
-      font-size: 0.95rem;
-      color: var(--accent);
-    }
-    .hints ol {
-      margin: 0;
-      padding-left: 1.2rem;
-      color: #c9d1d9;
-      line-height: 1.65;
       font-size: 0.88rem;
+      line-height: 1.55;
+      color: #c9d1d9;
+      display: none;
+    }
+    .hint-panel.visible {
+      display: block;
+    }
+    .hint-panel strong {
+      color: #ffd54f;
     }
     .status {
       text-align: center;
@@ -224,17 +204,6 @@
       color: #6e7681;
       text-align: center;
       margin-top: 8px;
-    }
-    .bgm-hint {
-      text-align: center;
-      color: #e3b341;
-      font-size: 0.8rem;
-      margin: 0 0 12px;
-      line-height: 1.5;
-      padding: 10px 12px;
-      background: rgba(227, 179, 65, 0.08);
-      border-radius: 8px;
-      border: 1px solid rgba(227, 179, 65, 0.28);
     }
 
     /* —— 进入页（无账号密码，仅点击进入） —— */
@@ -326,13 +295,13 @@
       <p class="splash-sub">九宫格拼图</p>
       <p class="splash-music">背景音乐：《汪汪队立大功》主题曲<br />点击下面按钮进入游戏并开始播放</p>
       <button type="button" class="splash-enter" id="btnEnter" autofocus>点击进入</button>
-      <p class="splash-foot">同目录含 <code>paw_patrol_theme.mp3</code> 与 <code>paw_patrol_theme.ogg</code>（苹果 / 微信内建议走 MP3）。</p>
+      <p class="splash-foot">背景音乐为同目录的 <code>paw_patrol_theme.ogg</code>（可选另放 <code>paw_patrol_theme.mp3</code> 作备用）。</p>
     </div>
   </div>
 
   <audio id="bgm" loop playsinline preload="auto">
-    <source src="paw_patrol_theme.mp3" type="audio/mpeg" />
     <source src="paw_patrol_theme.ogg" type="audio/ogg" />
+    <source src="paw_patrol_theme.mp3" type="audio/mpeg" />
   </audio>
 
   <div id="gameScreen" class="game-screen is-hidden">
@@ -343,12 +312,9 @@
     <div class="toolbar">
       <button type="button" id="btnBgm" title="切换背景音乐">音乐：开</button>
       <button type="button" id="btnShuffle">重新打乱</button>
-      <button type="button" id="btnHintPos">高亮已归位的块</button>
+      <button type="button" id="btnHint">下一步提示</button>
       <label><input type="checkbox" id="chkPreview" checked />显示完整原图（提示）</label>
-      <label><input type="checkbox" id="chkFrag" />显示碎片编号</label>
     </div>
-
-    <p id="bgmHint" class="bgm-hint" hidden></p>
 
     <div class="play-area" id="playArea">
       <div class="ref-pane" id="refPane">
@@ -362,26 +328,10 @@
       </div>
     </div>
 
-    <p class="legend">玩法：按住碎片拖到目标格松开，两格内容交换。碎片编号表示「这一块在完整图里属于第几号区域」。</p>
+    <p class="legend">玩法：按住碎片拖到目标格松开，两格内容交换。点「下一步提示」会根据当前已拼好的块给出最优一步。</p>
     <div class="status" id="status">进度：— 按住一块拖到另一格交换</div>
 
-    <details class="hints-wrap">
-      <summary>展开：九个格子的位置文字提示</summary>
-      <section class="hints">
-        <h2>拼对后每块应在对应格</h2>
-        <ol id="hintList">
-          <li><strong>左上格：</strong>蓝天、左侧绿树与彩色气球一角。</li>
-          <li><strong>上中格：</strong>画面上方正中的圆形汪汪队标志。</li>
-          <li><strong>右上格：</strong>蓝天、右侧树梢与另一簇气球。</li>
-          <li><strong>左中格：</strong>左侧几只狗狗的上半脸（黄帽、绿帽等）。</li>
-          <li><strong>正中格：</strong>阿奇的蓝色警帽与面部（画面中心主角）。</li>
-          <li><strong>右中格：</strong>毛毛红色消防帽与旁边橙色头盔一带。</li>
-          <li><strong>左下格：</strong>左下角角色身体与草地。</li>
-          <li><strong>下中格：</strong>中间偏下的草地与奔跑的前爪。</li>
-          <li><strong>右下格：</strong>右下角草地、小白花与角落数字「9036」。</li>
-        </ol>
-      </section>
-    </details>
+    <div id="hintPanel" class="hint-panel" aria-live="polite"></div>
   </div>
   </div>
 
@@ -400,81 +350,34 @@
     const statusEl = document.getElementById("status");
     const refPane = document.getElementById("refPane");
     const chkPreview = document.getElementById("chkPreview");
-    const chkFrag = document.getElementById("chkFrag");
     const splashEl = document.getElementById("splash");
     const gameScreenEl = document.getElementById("gameScreen");
     const btnEnter = document.getElementById("btnEnter");
     const bgmEl = document.getElementById("bgm");
     const btnBgm = document.getElementById("btnBgm");
-    const bgmHintEl = document.getElementById("bgmHint");
 
     function syncBgmButton() {
       if (!btnBgm) return;
       btnBgm.textContent = bgmEl.muted || bgmEl.volume === 0 ? "音乐：关" : "音乐：开";
     }
 
-    function showBgmHint(msg) {
-      bgmHintEl.textContent = msg;
-      bgmHintEl.hidden = false;
-    }
-
-    function hideBgmHint() {
-      bgmHintEl.hidden = true;
-      bgmHintEl.textContent = "";
-    }
-
-    async function startBgm() {
-      hideBgmHint();
-      bgmEl.muted = false;
-      bgmEl.volume = 0.55;
-      bgmEl.load();
-      await new Promise((resolve) => {
-        const done = () => {
-          clearTimeout(t);
-          bgmEl.removeEventListener("canplay", done);
-          bgmEl.removeEventListener("error", onErr);
-          resolve();
-        };
-        const onErr = () => {
-          clearTimeout(t);
-          bgmEl.removeEventListener("canplay", done);
-          bgmEl.removeEventListener("error", onErr);
-          resolve();
-        };
-        const t = setTimeout(done, 4000);
-        if (bgmEl.readyState >= 3) {
-          clearTimeout(t);
-          resolve();
-          return;
-        }
-        bgmEl.addEventListener("canplay", done, { once: true });
-        bgmEl.addEventListener("error", onErr, { once: true });
-      });
-      try {
-        await bgmEl.play();
-        hideBgmHint();
-      } catch (err) {
-        showBgmHint(
-          "背景音乐未播放：请用系统浏览器（Chrome / Safari）打开页面；若在 GitHub 上，请确认已推送 paw_patrol_theme.mp3；检查标签页与系统是否静音；可点下方「音乐：开」重试。"
-        );
-      }
-    }
-
-    bgmEl.addEventListener("playing", () => hideBgmHint());
-
     btnEnter.addEventListener("click", () => {
       splashEl.classList.add("is-hidden");
       gameScreenEl.classList.remove("is-hidden");
       document.body.classList.remove("splash-open");
-      void startBgm();
+      bgmEl.muted = false;
+      bgmEl.volume = 0.4;
+      bgmEl.play().catch(() => {
+        /* 文件缺失或浏览器策略：静默失败 */
+      });
       syncBgmButton();
     });
 
     btnBgm.addEventListener("click", () => {
       if (bgmEl.muted) {
         bgmEl.muted = false;
-        if (bgmEl.volume === 0) bgmEl.volume = 0.55;
-        bgmEl.play().catch(() => void startBgm());
+        if (bgmEl.volume === 0) bgmEl.volume = 0.4;
+        bgmEl.play().catch(() => {});
       } else {
         bgmEl.muted = true;
       }
@@ -615,8 +518,6 @@
 
     function renderBoard() {
       boardEl.innerHTML = "";
-      const showFrag = chkFrag.checked;
-      boardEl.classList.toggle("show-frag", showFrag);
       boardEl.classList.toggle("solved", isSolved());
 
       for (let slot = 0; slot < N * N; slot++) {
@@ -630,38 +531,147 @@
         div.style.backgroundSize = st.backgroundSize;
         div.style.backgroundPosition = st.backgroundPosition;
 
-        const label = document.createElement("span");
-        label.className = "frag-label";
-        label.textContent = "碎片 " + (frag + 1);
-        div.appendChild(label);
-
         if (!isSolved()) attachDragHandlers(div, slot);
         boardEl.appendChild(div);
       }
       updateStatus();
     }
 
+    const SLOT_NAMES = ["左上", "上中", "右上", "左中", "正中", "右中", "左下", "下中", "右下"];
+    const hintPanel = document.getElementById("hintPanel");
+    let hintHighlightTimer = null;
+
+    function countCorrect(p) {
+      return p.filter((v, i) => v === i).length;
+    }
+
+    function displacementSum(p) {
+      let sum = 0;
+      for (let i = 0; i < N * N; i++) {
+        const f = p[i];
+        const tr = Math.floor(f / N);
+        const tc = f % N;
+        const sr = Math.floor(i / N);
+        const sc = i % N;
+        sum += Math.abs(tr - sr) + Math.abs(tc - sc);
+      }
+      return sum;
+    }
+
+    function swapPlacement(p, a, b) {
+      const next = p.slice();
+      const t = next[a];
+      next[a] = next[b];
+      next[b] = t;
+      return next;
+    }
+
+    function brokenCorrectCount(p, a, b) {
+      let n = 0;
+      if (p[a] === a) n++;
+      if (p[b] === b) n++;
+      return n;
+    }
+
+    /** 枚举所有交换：优先多归位，其次少破坏已拼好的块，再比总位移 */
+    function findBestSwap(p) {
+      const before = countCorrect(p);
+      const beforeDist = displacementSum(p);
+      let best = null;
+
+      for (let a = 0; a < N * N; a++) {
+        for (let b = a + 1; b < N * N; b++) {
+          const next = swapPlacement(p, a, b);
+          const gain = countCorrect(next) - before;
+          const after = countCorrect(next);
+          const dist = displacementSum(next);
+          const broken = brokenCorrectCount(p, a, b);
+
+          const better =
+            !best ||
+            gain > best.gain ||
+            (gain === best.gain && broken < best.broken) ||
+            (gain === best.gain && broken === best.broken && after > best.after) ||
+            (gain === best.gain &&
+              broken === best.broken &&
+              after === best.after &&
+              dist < best.dist);
+
+          if (better) {
+            best = { a, b, gain, after, dist, broken };
+          }
+        }
+      }
+
+      return best;
+    }
+
+    function clearHintHighlight() {
+      boardEl.querySelectorAll(".cell.hint-suggest").forEach((el) => {
+        el.classList.remove("hint-suggest");
+      });
+    }
+
+    function showNextHint() {
+      if (hintHighlightTimer) {
+        clearTimeout(hintHighlightTimer);
+        hintHighlightTimer = null;
+      }
+      clearHintHighlight();
+
+      if (isSolved()) {
+        hintPanel.classList.add("visible");
+        hintPanel.textContent = "拼图已完成，无需提示。";
+        return;
+      }
+
+      const ok = countCorrect(placement);
+      const move = findBestSwap(placement);
+      if (!move) {
+        hintPanel.classList.add("visible");
+        hintPanel.textContent = "暂无可用提示。";
+        return;
+      }
+
+      const nameA = SLOT_NAMES[move.a];
+      const nameB = SLOT_NAMES[move.b];
+      const fragAtA = placement[move.a];
+      const fragHome = SLOT_NAMES[fragAtA];
+
+      let detail = "";
+      if (move.gain > 0) {
+        detail = `互换后预计可多 <strong>${move.gain}</strong> 块归位（共 ${move.after}/9）。`;
+      } else if (move.b === fragAtA) {
+        detail = `可把<strong>${nameA}</strong>中的碎片送回其应在的<strong>${fragHome}</strong>格，为后续铺路。`;
+      } else {
+        detail = "当前一步无法立刻多归位，但这是让整体更接近完成、且尽量不破坏已拼好块的最佳交换。";
+      }
+
+      hintPanel.classList.add("visible");
+      hintPanel.innerHTML =
+        `已有 <strong>${ok}/9</strong> 块在正确位置。建议：把 <strong>${nameA}</strong> 与 <strong>${nameB}</strong> 互换（拖到对方格松开）。${detail}`;
+
+      const cells = boardEl.querySelectorAll(".cell");
+      cells[move.a].classList.add("hint-suggest");
+      cells[move.b].classList.add("hint-suggest");
+      hintHighlightTimer = setTimeout(clearHintHighlight, 4500);
+    }
+
+    document.getElementById("btnHint").addEventListener("click", showNextHint);
+
     document.getElementById("btnShuffle").addEventListener("click", () => {
       placement = makeShuffledPlacement();
       dragSlot = -1;
       dragPointerId = null;
       dragSourceEl = null;
+      if (hintHighlightTimer) clearTimeout(hintHighlightTimer);
+      clearHintHighlight();
+      hintPanel.classList.remove("visible");
+      hintPanel.textContent = "";
       renderBoard();
     });
 
-    document.getElementById("btnHintPos").addEventListener("click", () => {
-      const cells = boardEl.querySelectorAll(".cell");
-      cells.forEach((el, slot) => {
-        el.classList.toggle("correct-hint", placement[slot] === slot);
-      });
-      setTimeout(() => {
-        cells.forEach((el) => el.classList.remove("correct-hint"));
-      }, 2000);
-    });
-
     chkPreview.addEventListener("change", syncRefPane);
-
-    chkFrag.addEventListener("change", renderBoard);
 
     const preload = new Image();
     preload.onload = () => {
